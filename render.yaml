@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: socialsync
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/boot.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: APP_URL
+        value: "https://socialsync.onrender.com"
+      - key: OPEN_DISPATCH_URL
+        sync: false
