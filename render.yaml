@@ -5,14 +5,15 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     startCommand: node dist/boot.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_LwIU6EnXHr9d@ep-super-queen-adzhcqk0.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: APP_SECRET
-        generateValue: true
+        value: cbfba6206fdf1977528356ecb758a5180c2e5d943f0b6be67b9cf7011c3c355b
       - key: APP_URL
-        value: "https://socialsync.onrender.com"
+        value: https://socialsync.onrender.com
       - key: OPEN_DISPATCH_URL
-        sync: false
+        value: http://localhost:8000
