@@ -34,6 +34,14 @@ export default function Login() {
     onError: (err) => toast.error(err.message),
   });
 
+  const firebaseLoginMutation = trpc.auth.firebaseLogin.useMutation({
+    onSuccess: () => {
+      toast.success("Logged in with Facebook!");
+      window.location.href = "/";
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegister) {
@@ -55,15 +63,12 @@ export default function Login() {
       if (accessToken && user) {
         localStorage.setItem("fb_access_token", accessToken);
 
-        await trpcUtils.auth.firebaseLogin.mutate({
+        firebaseLoginMutation.mutate({
           accessToken,
           email: user.email || "",
           name: user.displayName || "",
           providerId: credential?.providerId || "facebook.com",
         });
-
-        toast.success("Logged in with Facebook!");
-        navigate("/");
       }
     } catch (err: any) {
       if (err.code !== "auth/popup-closed-by-user") {
