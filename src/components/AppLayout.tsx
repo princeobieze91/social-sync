@@ -18,6 +18,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { LOGIN_PATH } from "@/const";
@@ -192,14 +193,20 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         {/* Top Bar */}
         <header className="h-14 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
           <div className="flex items-center gap-4">
+            <SidebarTrigger className="h-8 w-8 -ml-1" />
             <h1 className="text-sm font-semibold text-foreground/90">
               {activeMenuItem?.label || "Dashboard"}
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors">
+            <button
+              onClick={() => navigate("/accounts")}
+              className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+            >
               <Bell className="h-[18px] w-[18px] text-muted-foreground" />
-              <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary">{accounts?.length || 0}</Badge>
+              {connectedCount > 0 && (
+                <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary">{connectedCount}</Badge>
+              )}
             </button>
             <div className="h-5 w-px bg-border" />
             <div className="flex items-center gap-2">
