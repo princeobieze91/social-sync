@@ -12,6 +12,7 @@ import { signInWithPopup, FacebookAuthProvider } from "firebase/auth";
 
 export default function Login() {
   const navigate = useNavigate();
+  const trpcUtils = trpc.useUtils();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,9 +50,19 @@ export default function Login() {
       const result = await signInWithPopup(auth, facebookProvider);
       const credential = FacebookAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken;
-      if (accessToken) {
-        toast.success("Logged in with Facebook!");
+      const user = result.user;
+
+      if (accessToken && user) {
         localStorage.setItem("fb_access_token", accessToken);
+
+        await trpcUtils.auth.firebaseLogin.mutate({
+          accessToken,
+          email: user.email || "",
+          name: user.displayName || "",
+          providerId: credential?.providerId || "facebook.com",
+        });
+
+        toast.success("Logged in with Facebook!");
         navigate("/");
       }
     } catch (err: any) {

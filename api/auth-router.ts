@@ -139,4 +139,45 @@ export const authRouter = createRouter({
     );
     return { success: true };
   }),
+
+  firebaseLogin: publicQuery
+    .input(z.object({
+      accessToken: z.string(),
+      email: z.string().email(),
+      name: z.string().optional(),
+      providerId: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      let user = await db.query.users.findFirst({
+        where: eq(users.email, input.email),
+      });
+
+      if (!user) {
+        const [result] = await db.insert(users).values({
+          email: input.email,
+          passwordHash: "firebase-auth",
+          name: input.name || input.email.split("@")[0],
+          role: "admin",
+        }).returning();
+        user = result;
+      }
+
+      await db.update(users).set({
+        lastSignInAt: new Date(),
+      }).where(eq(users.id, user.id));
+
+      const token = await signToken({ userId: user.id, email: user.email });
+      const opts = getSessionCookieOptions(ctx.req.headers);
+      ctx.resHeaders.append(
+        "set-cookie",
+        cookie.serialize(Session.cookieName, token, {
+          ...opts,
+          maxAge: Session.maxAgeMs / 1000,
+        }),
+      );
+
+      return { userId: user.id, email: user.email, name: user.name };
+    }),
 });
