@@ -109,18 +109,18 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar collapsible="icon" className="border-r border-border/60">
-        <SidebarHeader className="h-16 justify-center px-4">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shrink-0">
-              <Sparkles className="h-4 w-4 text-primary-foreground" />
+        <SidebarHeader className="h-12 justify-center px-2">
+          <Link to="/" className="flex items-center gap-1.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shrink-0">
+              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             {!isCollapsed && (
-              <span className="font-bold text-base tracking-tight">SocialSync</span>
+              <span className="font-bold text-sm tracking-tight">SocialSync</span>
             )}
           </Link>
         </SidebarHeader>
 
-        <SidebarContent className="px-2 py-2">
+        <SidebarContent className="px-1 py-1">
           <SidebarMenu>
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -130,10 +130,10 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
                     isActive={isActive}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className="h-10 transition-all"
+                    className="h-8 transition-all"
                   >
                     <item.icon
-                      className={`h-[18px] w-[18px] ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                      className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`}
                     />
                     <span className={isActive ? "font-medium" : ""}>{item.label}</span>
                     {isActive && !isCollapsed && (
