@@ -8,6 +8,7 @@ import Calendar from "./pages/Calendar";
 import Accounts from "./pages/Accounts";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import FacebookDemo from "./pages/FacebookDemo";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/facebook-demo" element={<FacebookDemo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>

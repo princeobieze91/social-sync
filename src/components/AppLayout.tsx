@@ -33,6 +33,7 @@ import {
   Sparkles,
   ChevronRight,
   Bell,
+  Facebook,
 } from "lucide-react";
 import { type ReactNode } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
@@ -44,6 +45,7 @@ const menuItems = [
   { icon: CalendarDays, label: "Calendar", path: "/calendar" },
   { icon: Users, label: "Accounts", path: "/accounts" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
+  { icon: Facebook, label: "Facebook Demo", path: "/facebook-demo" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 

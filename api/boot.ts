@@ -84,6 +84,36 @@ app.get("/api/test-fb", async (c) => {
   }
 });
 
+app.get("/api/facebook/pages", async (c) => {
+  try {
+    const userRes = await fetch("https://graph.facebook.com/v19.0/me?fields=name,id&access_token=" + encodeURIComponent("EAATcxfSscZBEBR2sapZBZBmZAxNZA1KyWWW9MNJWDKDQKQo91GPIbkj1em0i3DEH7VoUXE2WtZC8IfcBrpZBl6QRnZBjOC7ZA5sORgf72cS349pBkn8kMMn79N4lWJvaeQK8p4Fd8GOW6UFOPJ0QeeHvDS4stkjZBNIbJLrXstQ9xNUsfmlpmMkuOyvzSjJR2PshGFMZAK9cD1qaWzROiUZCDcAFjGOGrcwn823oZAJQP83K0QESRXLU0hDbwaEdZB0DDPfUP41Ui6Tv8yDBeZB1QZCuBOePBGob"));
+    const user = await userRes.json();
+
+    const pagesRes = await fetch("https://graph.facebook.com/v19.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count,picture.width(100)&access_token=" + encodeURIComponent("EAATcxfSscZBEBR2sapZBZBmZAxNZA1KyWWW9MNJWDKDQKQo91GPIbkj1em0i3DEH7VoUXE2WtZC8IfcBrpZBl6QRnZBjOC7ZA5sORgf72cS349pBkn8kMMn79N4lWJvaeQK8p4Fd8GOW6UFOPJ0QeeHvDS4stkjZBNIbJLrXstQ9xNUsfmlpmMkuOyvzSjJR2PshGFMZAK9cD1qaWzROiUZCDcAFjGOGrcwn823oZAJQP83K0QESRXLU0hDbwaEdZB0DDPfUP41Ui6Tv8yDBeZB1QZCuBOePBGob"));
+    const pages = await pagesRes.json();
+
+    return c.json({ user, pages: pages.data || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.get("/api/facebook/posts", async (c) => {
+  const pageId = c.req.query("pageId");
+  const pageToken = c.req.query("pageToken") || "EAATcxfSscZBEBRzsIqpEB1kvGE6HhNZBeGZAI7TRL7BLqFdXQZBDK4wLNne6qg64Pdq0dQ042L4RgbLs2DzWIIosW8UgHqT2ZAghsLOApuYZBPqcvlhbOqlVSe952IYArZBdJIRTXKfmYLseO0Jl5cAo25OSfEodaGbBrM7rBNuLa3VngvPZBArdT6R1eJ4gMJVJvrKhwZCLctup8qKWZCjZCKkvvSfaSqWAWYhSapOPPcZD";
+
+  if (!pageId) return c.json({ error: "Missing pageId" }, 400);
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/posts?fields=id,message,created_time,type,full_picture,likes.summary(true),comments.summary(true),shares&limit=10&access_token=${encodeURIComponent(pageToken)}`);
+    const data = await res.json();
+
+    return c.json({ posts: data.data || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.post("/api/webhooks/dispatch", async (c) => {
   const body = await c.req.json();
   const { appRouter } = await import("./router");
