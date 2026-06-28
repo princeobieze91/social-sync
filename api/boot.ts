@@ -110,7 +110,7 @@ app.get("/api/facebook/posts", async (c) => {
   if (!pageId || !pageToken) return c.json({ error: "Missing pageId or pageToken" }, 400);
 
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/posts?fields=id,message,created_time,type,full_picture,likes.summary(true),comments.summary(true),shares&limit=10&access_token=${encodeURIComponent(pageToken)}`);
+    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/posts?fields=id,message,created_time,type,full_picture,likes.summary(true),comments.summary(true)&limit=10&access_token=${encodeURIComponent(pageToken)}`);
     const data = await res.json();
     if (data.error) return c.json({ error: data.error });
 
