@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Facebook,
+  Instagram,
   Users,
   FileText,
   Eye,
@@ -35,6 +36,26 @@ interface FacebookPage {
   picture?: { data: { url: string } };
 }
 
+interface InstagramAccount {
+  id: string;
+  name?: string;
+  username?: string;
+  profile_picture_url?: string;
+  followers_count?: number;
+  media_count?: number;
+}
+
+interface InstagramMedia {
+  id: string;
+  caption?: string;
+  media_type: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  timestamp: string;
+  like_count?: number;
+  comments_count?: number;
+}
+
 interface FacebookPost {
   id: string;
   message?: string;
@@ -56,6 +77,9 @@ export default function FacebookDemo() {
   const [step, setStep] = useState<"idle" | "pages" | "posts">("idle");
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState("");
+  const [igAccount, setIgAccount] = useState<InstagramAccount | null>(null);
+  const [igMedia, setIgMedia] = useState<InstagramMedia[]>([]);
+  const [igLoading, setIgLoading] = useState(false);
 
   const API_BASE = "";
 
@@ -86,17 +110,29 @@ export default function FacebookDemo() {
   const fetchPosts = async (page: FacebookPage) => {
     setSelectedPage(page);
     setPostsLoading(true);
+    setIgLoading(true);
     setStep("posts");
+    setIgAccount(null);
+    setIgMedia([]);
     try {
-      const res = await fetch(`${API_BASE}/api/facebook/posts?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      setPosts(data.posts || []);
-      toast.success(`Loaded ${(data.posts || []).length} posts`);
+      const [postsRes, igRes] = await Promise.all([
+        fetch(`${API_BASE}/api/facebook/posts?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`),
+        fetch(`${API_BASE}/api/facebook/instagram?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`),
+      ]);
+      const postsData = await postsRes.json();
+      const igData = await igRes.json();
+      if (postsData.error) throw new Error(postsData.error.message || JSON.stringify(postsData.error));
+      setPosts(postsData.posts || []);
+      if (igData.instagram) {
+        setIgAccount(igData.instagram);
+        setIgMedia(igData.media || []);
+      }
+      toast.success(`Loaded ${(postsData.posts || []).length} posts`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setPostsLoading(false);
+      setIgLoading(false);
     }
   };
 
@@ -360,6 +396,110 @@ export default function FacebookDemo() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Instagram Section */}
+      {step === "posts" && igLoading && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Instagram className="h-4 w-4 text-[#E4405F]" />
+            Loading Instagram...
+          </h3>
+          {Array(2).fill(0).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-5">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {step === "posts" && !igLoading && igAccount && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Instagram className="h-4 w-4 text-[#E4405F]" />
+            Instagram Account
+          </h3>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-4">
+                {igAccount.profile_picture_url && (
+                  <img src={igAccount.profile_picture_url} alt="" className="h-14 w-14 rounded-full" />
+                )}
+                <div>
+                  <p className="font-semibold">{igAccount.username || igAccount.name}</p>
+                  <p className="text-xs text-muted-foreground">ID: {igAccount.id}</p>
+                </div>
+                <div className="ml-auto flex gap-6">
+                  <div className="text-center">
+                    <p className="text-lg font-bold">{formatCount(igAccount.followers_count || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground">Followers</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold">{igAccount.media_count || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Posts</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {igMedia.length > 0 && (
+            <>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Instagram Media ({igMedia.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {igMedia.map((item) => (
+                  <Card key={item.id} className="overflow-hidden">
+                    {item.media_url && (
+                      <div className="aspect-square bg-muted">
+                        <img src={item.media_url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-[10px]">{item.media_type}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{formatDate(item.timestamp)}</span>
+                      </div>
+                      {item.caption && (
+                        <p className="text-xs line-clamp-2 mt-1">{item.caption}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Heart className="h-3 w-3" /> {item.like_count || 0}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3" /> {item.comments_count || 0}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+
+          {igMedia.length === 0 && (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Instagram className="h-10 w-10 mx-auto text-[#E4405F] mb-2 opacity-50" />
+                <p className="text-sm text-muted-foreground">No Instagram media found</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {step === "posts" && !igLoading && !igAccount && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Instagram className="h-10 w-10 mx-auto text-[#E4405F] mb-2 opacity-50" />
+            <p className="text-sm text-muted-foreground">No Instagram Business account linked to this page</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Empty State */}

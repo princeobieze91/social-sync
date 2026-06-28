@@ -103,6 +103,28 @@ app.get("/api/facebook/pages", async (c) => {
   }
 });
 
+app.get("/api/facebook/instagram", async (c) => {
+  const pageId = c.req.query("pageId");
+  const pageToken = c.req.query("pageToken");
+  if (!pageId || !pageToken) return c.json({ error: "Missing pageId or pageToken" }, 400);
+
+  try {
+    const igRes = await fetch(`https://graph.facebook.com/v25.0/${pageId}?fields=instagram_business_account{id,name,username,profile_picture_url,followers_count,media_count}&access_token=${encodeURIComponent(pageToken)}`);
+    const igData = await igRes.json();
+    if (igData.error) return c.json({ error: igData.error });
+
+    const igAccount = igData.instagram_business_account;
+    if (!igAccount) return c.json({ instagram: null });
+
+    const mediaRes = await fetch(`https://graph.facebook.com/v25.0/${igAccount.id}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${encodeURIComponent(pageToken)}`);
+    const mediaData = await mediaRes.json();
+
+    return c.json({ instagram: igAccount, media: mediaData.data || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.get("/api/facebook/posts", async (c) => {
   const pageId = c.req.query("pageId");
   const pageToken = c.req.query("pageToken");
