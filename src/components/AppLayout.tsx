@@ -99,7 +99,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { data: accounts } = trpc.account.connected.useQuery();
 
@@ -191,7 +191,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset style={{ marginLeft: isMobile ? 0 : (isCollapsed ? "2.2rem" : "10rem"), transition: "margin 0.2s ease" }}>
         {/* Top Bar */}
         <header className="h-14 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
           <div className="flex items-center gap-4">
