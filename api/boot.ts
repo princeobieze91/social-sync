@@ -65,16 +65,16 @@ app.get("/api/test-fb", async (c) => {
   try {
     const results: Record<string, any> = {};
 
-    const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=name,id&access_token=${token}`);
+    const meRes = await fetch(`https://graph.facebook.com/v21.0/me?fields=name,id&access_token=${token}`);
     results.user = await meRes.json();
 
-    const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,id,access_token&access_token=${token}`);
+    const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=name,id,access_token&access_token=${token}`);
     results.pages = await pagesRes.json();
 
     if (results.pages?.data?.[0]) {
       const pageId = results.pages.data[0].id;
       const pageToken = results.pages.data[0].access_token;
-      const igRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`);
+      const igRes = await fetch(`https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`);
       results.instagram = await igRes.json();
     }
 
@@ -89,11 +89,11 @@ app.get("/api/facebook/pages", async (c) => {
   if (!token) return c.json({ error: "Missing token parameter" }, 400);
 
   try {
-    const userRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=name,id&access_token=${encodeURIComponent(token)}`);
+    const userRes = await fetch(`https://graph.facebook.com/v21.0/me?fields=name,id&access_token=${encodeURIComponent(token)}`);
     const user = await userRes.json();
     if (user.error) return c.json({ error: user.error });
 
-    const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
+    const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
     const pages = await pagesRes.json();
     if (pages.error) return c.json({ error: pages.error });
 
@@ -110,7 +110,7 @@ app.get("/api/facebook/posts", async (c) => {
   if (!pageId || !pageToken) return c.json({ error: "Missing pageId or pageToken" }, 400);
 
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed?fields=id,message,created_time,type,full_picture&limit=10&access_token=${encodeURIComponent(pageToken)}`);
+    const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,created_time,type,full_picture&limit=10&access_token=${encodeURIComponent(pageToken)}`);
     const data = await res.json();
     if (data.error) return c.json({ error: data.error });
 
