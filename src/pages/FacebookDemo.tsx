@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Facebook,
-  Instagram,
   Users,
   FileText,
   Eye,
@@ -14,11 +13,11 @@ import {
   MessageCircle,
   Share2,
   RefreshCw,
-  ExternalLink,
   Image,
   Video,
   Calendar,
   BarChart3,
+  AlertCircle,
 } from "lucide-react";
 
 interface FacebookUser {
@@ -55,21 +54,29 @@ export default function FacebookDemo() {
   const [posts, setPosts] = useState<FacebookPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [step, setStep] = useState<"idle" | "pages" | "posts">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [token, setToken] = useState("");
 
   const API_BASE = "";
 
   const fetchPages = async () => {
     setLoading(true);
     setStep("idle");
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/facebook/pages`);
-      if (!res.ok) throw new Error("Failed to fetch pages");
+      const url = token
+        ? `${API_BASE}/api/facebook/pages?token=${encodeURIComponent(token)}`
+        : `${API_BASE}/api/facebook/pages`;
+      const res = await fetch(url);
       const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      if (!data.user) throw new Error("No user data returned. Token may be expired.");
       setUser(data.user);
       setPages(data.pages || []);
       setStep("pages");
       toast.success(`Found ${(data.pages || []).length} pages`);
     } catch (err: any) {
+      setError(err.message);
       toast.error(err.message);
     } finally {
       setLoading(false);
@@ -81,9 +88,9 @@ export default function FacebookDemo() {
     setPostsLoading(true);
     setStep("posts");
     try {
-      const res = await fetch(`${API_BASE}/api/facebook/posts?pageId=${page.id}`);
-      if (!res.ok) throw new Error("Failed to fetch posts");
+      const res = await fetch(`${API_BASE}/api/facebook/posts?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`);
       const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
       setPosts(data.posts || []);
       toast.success(`Loaded ${(data.posts || []).length} posts`);
     } catch (err: any) {
@@ -131,7 +138,7 @@ export default function FacebookDemo() {
             Demo showing how SocialSync reads Facebook Page data using the Graph API
           </p>
         </div>
-        <Button onClick={fetchPages} disabled={loading} size="sm">
+        <Button onClick={fetchPages} disabled={loading || !token.trim()} size="sm">
           {loading ? (
             <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : (
@@ -140,6 +147,36 @@ export default function FacebookDemo() {
           {step === "idle" ? "Fetch Pages" : "Refresh"}
         </Button>
       </div>
+
+      {/* Token Input */}
+      <Card>
+        <CardContent className="p-4">
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Facebook Access Token</label>
+          <input
+            type="text"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Paste your Facebook access token here..."
+            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            Get a token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">Graph API Explorer</a>
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Error */}
+      {error && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Error</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Progress Steps */}
       <Card>
@@ -175,7 +212,7 @@ export default function FacebookDemo() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold">
-                {user.name.charAt(0)}
+                {(user.name || "?").charAt(0)}
               </div>
               <div>
                 <p className="font-semibold">{user.name}</p>
