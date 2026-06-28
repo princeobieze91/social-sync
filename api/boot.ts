@@ -58,6 +58,32 @@ app.use("/api/trpc/*", async (c) => {
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
+app.get("/api/test-fb", async (c) => {
+  const token = c.req.query("token");
+  if (!token) return c.json({ error: "Missing ?token= param" }, 400);
+
+  try {
+    const results: Record<string, any> = {};
+
+    const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=name,id&access_token=${token}`);
+    results.user = await meRes.json();
+
+    const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,id,access_token&access_token=${token}`);
+    results.pages = await pagesRes.json();
+
+    if (results.pages?.data?.[0]) {
+      const pageId = results.pages.data[0].id;
+      const pageToken = results.pages.data[0].access_token;
+      const igRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`);
+      results.instagram = await igRes.json();
+    }
+
+    return c.json(results);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.post("/api/webhooks/dispatch", async (c) => {
   const body = await c.req.json();
   const { appRouter } = await import("./router");
