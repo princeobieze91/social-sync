@@ -146,6 +146,34 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
           </SidebarMenu>
         </SidebarContent>
 
+        {/* Pages Section */}
+        {!isCollapsed && accounts && accounts.length > 0 && (
+          <div className="px-2 py-2 border-t border-border/40">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">Pages</p>
+            <SidebarMenu>
+              {accounts.filter(a => a.isConnected === "true").map((account) => (
+                <SidebarMenuItem key={account.id}>
+                  <SidebarMenuButton
+                    onClick={() => navigate("/accounts")}
+                    tooltip={account.name}
+                    className="h-8"
+                  >
+                    <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[8px] font-bold shrink-0 ${
+                      account.platform === "facebook" ? "bg-[#1877F2] text-white" :
+                      account.platform === "instagram" ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white" :
+                      account.platform === "twitter" ? "bg-black text-white" :
+                      "bg-muted"
+                    }`}>
+                      {account.platform === "facebook" ? "f" : account.platform === "instagram" ? "IG" : account.platform === "twitter" ? "X" : account.platform?.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="truncate text-xs">{account.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </div>
+        )}
+
         <SidebarFooter className="p-3 gap-2">
           <div className="px-2 py-1.5">
             {!isCollapsed && (
