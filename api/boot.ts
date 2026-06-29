@@ -125,6 +125,32 @@ app.get("/api/facebook/instagram", async (c) => {
   }
 });
 
+app.post("/api/facebook/instagram/publish", async (c) => {
+  const body = await c.req.json();
+  const { igAccountId, pageToken, imageUrl, caption } = body;
+  if (!igAccountId || !pageToken || !imageUrl) {
+    return c.json({ error: "Missing igAccountId, pageToken, or imageUrl" }, 400);
+  }
+
+  try {
+    const containerRes = await fetch(`https://graph.facebook.com/v25.0/${igAccountId}/media?image_url=${encodeURIComponent(imageUrl)}&caption=${encodeURIComponent(caption || "")}&access_token=${encodeURIComponent(pageToken)}`, {
+      method: "POST",
+    });
+    const containerData = await containerRes.json();
+    if (containerData.error) return c.json({ error: containerData.error });
+
+    const publishRes = await fetch(`https://graph.facebook.com/v25.0/${igAccountId}/media_publish?creation_id=${containerData.id}&access_token=${encodeURIComponent(pageToken)}`, {
+      method: "POST",
+    });
+    const publishData = await publishRes.json();
+    if (publishData.error) return c.json({ error: publishData.error });
+
+    return c.json({ success: true, mediaId: publishData.id, containerId: containerData.id });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.get("/api/facebook/posts", async (c) => {
   const pageId = c.req.query("pageId");
   const pageToken = c.req.query("pageToken");

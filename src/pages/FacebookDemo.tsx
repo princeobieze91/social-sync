@@ -80,6 +80,10 @@ export default function FacebookDemo() {
   const [igAccount, setIgAccount] = useState<InstagramAccount | null>(null);
   const [igMedia, setIgMedia] = useState<InstagramMedia[]>([]);
   const [igLoading, setIgLoading] = useState(false);
+  const [publishCaption, setPublishCaption] = useState("");
+  const [publishImageUrl, setPublishImageUrl] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<string | null>(null);
 
   const API_BASE = "";
 
@@ -133,6 +137,39 @@ export default function FacebookDemo() {
     } finally {
       setPostsLoading(false);
       setIgLoading(false);
+    }
+  };
+
+  const publishToInstagram = async () => {
+    if (!igAccount || !selectedPage) return;
+    if (!publishImageUrl.trim()) {
+      toast.error("Image URL is required");
+      return;
+    }
+    setPublishing(true);
+    setPublishResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/facebook/instagram/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          igAccountId: igAccount.id,
+          pageToken: selectedPage.access_token,
+          imageUrl: publishImageUrl,
+          caption: publishCaption,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      setPublishResult(`Published! Container ID: ${data.containerId}`);
+      toast.success("Post published to Instagram!");
+      setPublishCaption("");
+      setPublishImageUrl("");
+    } catch (err: any) {
+      setPublishResult(`Error: ${err.message}`);
+      toast.error(err.message);
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -490,6 +527,47 @@ export default function FacebookDemo() {
               </CardContent>
             </Card>
           )}
+
+          {/* Publish to Instagram */}
+          <h3 className="text-sm font-semibold flex items-center gap-2 mt-4">
+            <Send className="h-4 w-4 text-[#E4405F]" />
+            Publish to Instagram
+          </h3>
+          <Card>
+            <CardContent className="p-5 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Image URL</label>
+                <input
+                  type="text"
+                  value={publishImageUrl}
+                  onChange={(e) => setPublishImageUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Caption (optional)</label>
+                <textarea
+                  value={publishCaption}
+                  onChange={(e) => setPublishCaption(e.target.value)}
+                  placeholder="Write a caption for your post..."
+                  className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                />
+              </div>
+              <Button size="sm" onClick={publishToInstagram} disabled={publishing || !publishImageUrl.trim()}>
+                {publishing ? (
+                  <><RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Publishing...</>
+                ) : (
+                  <><Send className="mr-1.5 h-3.5 w-3.5" /> Publish Post</>
+                )}
+              </Button>
+              {publishResult && (
+                <div className={`p-3 rounded-lg text-sm ${publishResult.startsWith("Error") ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
+                  {publishResult}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
