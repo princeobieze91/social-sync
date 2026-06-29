@@ -109,18 +109,18 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar collapsible="icon" className="border-r border-border/60">
-        <SidebarHeader className="h-12 justify-center px-2">
-          <Link to="/" className="flex items-center gap-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shrink-0">
-              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+        <SidebarHeader className="h-10 justify-center px-1.5">
+          <Link to="/" className="flex items-center gap-1">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary shrink-0">
+              <Sparkles className="h-3 w-3 text-primary-foreground" />
             </div>
             {!isCollapsed && (
-              <span className="font-bold text-sm tracking-tight">SocialSync</span>
+              <span className="font-bold text-xs tracking-tight">SocialSync</span>
             )}
           </Link>
         </SidebarHeader>
 
-        <SidebarContent className="px-1 py-1">
+        <SidebarContent className="px-0.5 py-1">
           <SidebarMenu>
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -130,12 +130,12 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
                     isActive={isActive}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className="h-8 transition-all"
+                    className="h-7"
                   >
                     <item.icon
-                      className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                      className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}
                     />
-                    <span className={isActive ? "font-medium" : ""}>{item.label}</span>
+                    <span className={`text-xs ${isActive ? "font-medium" : ""}`}>{item.label}</span>
                     {isActive && !isCollapsed && (
                       <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary/60" />
                     )}
@@ -219,7 +219,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset style={{ marginLeft: isMobile ? 0 : (isCollapsed ? "2.2rem" : "10rem"), transition: "margin 0.2s ease" }}>
+      <SidebarInset style={{ marginLeft: isMobile ? 0 : (isCollapsed ? "2rem" : "8rem"), transition: "margin 0.2s ease" }}>
         {/* Top Bar */}
         <header className="h-14 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
           <div className="flex items-center gap-4">
