@@ -246,11 +246,9 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         </header>
 
         {/* Main Content */}
-        <div style={{ paddingLeft: isMobile ? 0 : (isCollapsed ? "1.5rem" : "8rem"), transition: "padding 0.2s ease" }}>
-          <main className="flex-1 p-4 lg:p-6 max-w-[1440px] mx-auto w-full">
-            {children}
-          </main>
-        </div>
+        <main className="flex-1 p-4 lg:p-6 max-w-[1440px] mx-auto w-full">
+          {children}
+        </main>
       </SidebarInset>
     </>
   );
