@@ -78,6 +78,7 @@ export default function FacebookDemo() {
   const [step, setStep] = useState<"idle" | "pages" | "posts">("idle");
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState("");
+  const [pageId, setPageId] = useState("");
   const [igAccount, setIgAccount] = useState<InstagramAccount | null>(null);
   const [igMedia, setIgMedia] = useState<InstagramMedia[]>([]);
   const [igLoading, setIgLoading] = useState(false);
@@ -93,9 +94,8 @@ export default function FacebookDemo() {
     setStep("idle");
     setError(null);
     try {
-      const url = token
-        ? `${API_BASE}/api/facebook/pages?token=${encodeURIComponent(token)}`
-        : `${API_BASE}/api/facebook/pages`;
+      let url = `${API_BASE}/api/facebook/pages?token=${encodeURIComponent(token)}`;
+      if (pageId.trim()) url += `&pageId=${encodeURIComponent(pageId.trim())}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
@@ -224,17 +224,29 @@ export default function FacebookDemo() {
 
       {/* Token Input */}
       <Card>
-        <CardContent className="p-4">
-          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Facebook Access Token</label>
-          <input
-            type="text"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Paste your Facebook access token here..."
-            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1.5">
-            Get a token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">Graph API Explorer</a>
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Facebook Access Token</label>
+            <input
+              type="text"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste your Facebook access token (user or page token)..."
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Page ID <span className="text-muted-foreground/60">(optional — required for page tokens)</span></label>
+            <input
+              type="text"
+              value={pageId}
+              onChange={(e) => setPageId(e.target.value)}
+              placeholder="e.g. 784108274793561"
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Get a token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">Graph API Explorer</a> — select app, check permissions, generate token
           </p>
         </CardContent>
       </Card>

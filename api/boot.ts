@@ -86,9 +86,22 @@ app.get("/api/test-fb", async (c) => {
 
 app.get("/api/facebook/pages", async (c) => {
   const token = c.req.query("token");
+  const directPageId = c.req.query("pageId");
   if (!token) return c.json({ error: "Missing token parameter" }, 400);
 
   try {
+    // If pageId is provided, treat token as a page token
+    if (directPageId) {
+      const pageRes = await fetch(`https://graph.facebook.com/v25.0/${directPageId}?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
+      const pageData = await pageRes.json();
+      if (pageData.error) return c.json({ error: pageData.error });
+
+      return c.json({
+        user: { name: pageData.name, id: pageData.id },
+        pages: [{ ...pageData, access_token: token }],
+      });
+    }
+
     const userRes = await fetch(`https://graph.facebook.com/v25.0/me?fields=name,id&access_token=${encodeURIComponent(token)}`);
     const user = await userRes.json();
     if (user.error) return c.json({ error: user.error });
@@ -96,6 +109,24 @@ app.get("/api/facebook/pages", async (c) => {
     const pagesRes = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
     const pages = await pagesRes.json();
     if (pages.error) return c.json({ error: pages.error });
+
+    // If no pages found, the token might be a page token - try using it directly
+    if (!pages.data || pages.data.length === 0) {
+      const debugRes = await fetch(`https://graph.facebook.com/v25.0/me?fields=id&access_token=${encodeURIComponent(token)}`);
+      const debug = await debugRes.json();
+      // Check if this is a page token by looking at the ID
+      if (debug.id && debug.id !== user.id) {
+        // This might be a page token
+        const pageRes = await fetch(`https://graph.facebook.com/v25.0/${debug.id}?fields=name,id,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
+        const pageData = await pageRes.json();
+        if (!pageData.error) {
+          return c.json({
+            user,
+            pages: [{ ...pageData, access_token: token }],
+          });
+        }
+      }
+    }
 
     return c.json({ user, pages: pages.data || [] });
   } catch (err: any) {
