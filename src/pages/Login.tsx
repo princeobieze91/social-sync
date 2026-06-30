@@ -89,11 +89,11 @@ export default function Login() {
         <div className="flex justify-center mb-8">
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-lg opacity-50" />
-            <img
-              src="/socialsync-logo.png"
-              alt="SocialSync"
-              className="relative h-20 w-20 object-contain"
-            />
+            <div className="relative h-20 w-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+              <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
           </div>
         </div>
 
