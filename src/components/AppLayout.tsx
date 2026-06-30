@@ -219,7 +219,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset style={{ marginLeft: isMobile ? 0 : (isCollapsed ? "2rem" : "8rem"), transition: "margin 0.2s ease" }}>
+      <SidebarInset>
         {/* Top Bar */}
         <header className="h-14 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
           <div className="flex items-center gap-4">
@@ -248,9 +248,11 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 lg:p-6 max-w-[1440px] mx-auto w-full">
-          {children}
-        </main>
+        <div style={{ paddingLeft: isMobile ? 0 : (isCollapsed ? "2rem" : "8rem"), transition: "padding 0.2s ease" }}>
+          <main className="flex-1 p-4 lg:p-6 max-w-[1440px] mx-auto w-full">
+            {children}
+          </main>
+        </div>
       </SidebarInset>
     </>
   );
