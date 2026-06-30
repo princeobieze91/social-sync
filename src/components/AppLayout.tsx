@@ -114,9 +114,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary shrink-0">
               <Sparkles className="h-3 w-3 text-primary-foreground" />
             </div>
-            {!isCollapsed && (
-              <span className="font-bold text-xs tracking-tight">SocialSync</span>
-            )}
+            <span className="font-bold text-xs tracking-tight truncate group-data-[collapsible=icon]:hidden">SocialSync</span>
           </Link>
         </SidebarHeader>
 
@@ -133,11 +131,11 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
                     className="h-7"
                   >
                     <item.icon
-                      className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                      className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}
                     />
-                    <span className={`text-xs ${isActive ? "font-medium" : ""}`}>{item.label}</span>
+                    <span className={`text-xs truncate group-data-[collapsible=icon]:hidden ${isActive ? "font-medium" : ""}`}>{item.label}</span>
                     {isActive && !isCollapsed && (
-                      <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary/60" />
+                      <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary/60 group-data-[collapsible=icon]:hidden" />
                     )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
