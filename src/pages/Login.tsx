@@ -197,16 +197,6 @@ export default function Login() {
               )}
             </Button>
 
-            {/* Native FB Login Button (hidden, triggers same flow) */}
-            <div className="flex justify-center">
-              <fb:login-button
-                scope={FB_SCOPE}
-                onlogin="checkLoginState();"
-                size="large"
-                className="hidden"
-              />
-            </div>
-
             {/* Permissions info */}
             <p className="text-[10px] text-center text-gray-500">
               This will request access to your Facebook Pages and Instagram accounts

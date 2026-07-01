@@ -6,6 +6,12 @@
     <title>SocialSync</title>
   </head>
   <body>
+    <fb:login-button
+      scope="pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content"
+      onlogin="checkLoginState();"
+      size="large"
+      style="display:none;"
+    ></fb:login-button>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
