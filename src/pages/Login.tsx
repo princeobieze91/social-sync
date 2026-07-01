@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,8 +11,11 @@ declare global {
   interface Window {
     FB: any;
     fbAsyncInit: () => void;
+    checkLoginState: () => void;
   }
 }
+
+const FB_SCOPE = "pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -21,6 +24,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [fbLoading, setFbLoading] = useState(false);
+  const [fbReady, setFbReady] = useState(false);
+  const mountedRef = useRef(true);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: () => {
@@ -46,6 +51,79 @@ export default function Login() {
     onError: (err) => toast.error(err.message),
   });
 
+  // Process Facebook login response
+  const processFBResponse = useCallback((accessToken: string) => {
+    window.FB.api("/me", { fields: "name,email" }, (response: any) => {
+      if (!mountedRef.current) return;
+      if (response.error) {
+        toast.error("Failed to get user info from Facebook");
+        setFbLoading(false);
+        return;
+      }
+
+      localStorage.setItem("fb_access_token", accessToken);
+
+      facebookLoginMutation.mutate({
+        accessToken,
+        email: response.email || "",
+        name: response.name || "",
+      });
+    });
+  }, [facebookLoginMutation]);
+
+  // checkLoginState — called by FB SDK and on login button click
+  window.checkLoginState = useCallback(() => {
+    if (!window.FB) return;
+    setFbLoading(true);
+
+    window.FB.getLoginStatus((response: any) => {
+      if (!mountedRef.current) return;
+      if (response.status === "connected") {
+        processFBResponse(response.authResponse.accessToken);
+      } else {
+        // Not connected — trigger login popup
+        window.FB.login(
+          (loginResponse: any) => {
+            if (!mountedRef.current) return;
+            if (loginResponse.authResponse) {
+              processFBResponse(loginResponse.authResponse.accessToken);
+            } else {
+              setFbLoading(false);
+              toast.error("Facebook login cancelled");
+            }
+          },
+          { scope: FB_SCOPE, return_scopes: true }
+        );
+      }
+    });
+  }, [processFBResponse]);
+
+  // On mount: check if already logged in with Facebook
+  useEffect(() => {
+    mountedRef.current = true;
+
+    const waitForFB = setInterval(() => {
+      if (window.FB) {
+        clearInterval(waitForFB);
+        setFbReady(true);
+
+        window.FB.getLoginStatus((response: any) => {
+          if (!mountedRef.current) return;
+          if (response.status === "connected") {
+            // Already logged in — auto-login
+            setFbLoading(true);
+            processFBResponse(response.authResponse.accessToken);
+          }
+        });
+      }
+    }, 200);
+
+    return () => {
+      mountedRef.current = false;
+      clearInterval(waitForFB);
+    };
+  }, [processFBResponse]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegister) {
@@ -56,68 +134,6 @@ export default function Login() {
   };
 
   const pending = loginMutation.isPending || registerMutation.isPending || facebookLoginMutation.isPending;
-
-  const handleFacebookLogin = () => {
-    setFbLoading(true);
-
-    const loginWithToken = (accessToken: string) => {
-      // Get user info from Facebook
-      window.FB.api("/me", { fields: "name,email" }, (response: any) => {
-        if (response.error) {
-          toast.error("Failed to get user info from Facebook");
-          setFbLoading(false);
-          return;
-        }
-
-        // Store token for later use (page connections, etc.)
-        localStorage.setItem("fb_access_token", accessToken);
-
-        // Send to backend to create/find user and auto-fetch pages
-        facebookLoginMutation.mutate({
-          accessToken,
-          email: response.email || "",
-          name: response.name || "",
-        });
-      });
-    };
-
-    // Check if already logged in
-    window.FB.getLoginStatus((response: any) => {
-      if (response.status === "connected") {
-        // Already logged in, but we need fresh permissions
-        window.FB.login(
-          (loginResponse: any) => {
-            if (loginResponse.authResponse) {
-              loginWithToken(loginResponse.authResponse.accessToken);
-            } else {
-              setFbLoading(false);
-              toast.error("Facebook login cancelled");
-            }
-          },
-          {
-            scope: "pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content",
-            return_scopes: true,
-          }
-        );
-      } else {
-        // Not logged in, trigger login
-        window.FB.login(
-          (loginResponse: any) => {
-            if (loginResponse.authResponse) {
-              loginWithToken(loginResponse.authResponse.accessToken);
-            } else {
-              setFbLoading(false);
-              toast.error("Facebook login cancelled");
-            }
-          },
-          {
-            scope: "pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content",
-            return_scopes: true,
-          }
-        );
-      }
-    });
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -158,13 +174,13 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Facebook Login */}
+            {/* Facebook Login Button */}
             <Button
               type="button"
               variant="outline"
               className="w-full h-12 bg-[#1877F2] border-[#1877F2] text-white hover:bg-[#166FE5] transition-all font-medium"
-              onClick={handleFacebookLogin}
-              disabled={pending || fbLoading}
+              onClick={() => window.checkLoginState()}
+              disabled={pending || fbLoading || !fbReady}
             >
               {fbLoading || facebookLoginMutation.isPending ? (
                 <div className="flex items-center gap-2">
@@ -180,6 +196,16 @@ export default function Login() {
                 </>
               )}
             </Button>
+
+            {/* Native FB Login Button (hidden, triggers same flow) */}
+            <div className="flex justify-center">
+              <fb:login-button
+                scope={FB_SCOPE}
+                onlogin="checkLoginState();"
+                size="large"
+                className="hidden"
+              />
+            </div>
 
             {/* Permissions info */}
             <p className="text-[10px] text-center text-gray-500">
