@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { trpc } from "@/providers/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +20,8 @@ import {
   BarChart3,
   AlertCircle,
   Send,
+  Zap,
 } from "lucide-react";
-
-interface FacebookUser {
-  name: string;
-  id: string;
-}
 
 interface FacebookPage {
   name: string;
@@ -33,7 +30,6 @@ interface FacebookPage {
   category?: string;
   fan_count?: number;
   followers_count?: number;
-  picture?: { data: { url: string } };
 }
 
 interface InstagramAccount {
@@ -68,16 +64,12 @@ interface FacebookPost {
 }
 
 export default function FacebookDemo() {
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<FacebookUser | null>(null);
-  const [pages, setPages] = useState<FacebookPage[]>([]);
-  const [selectedPage, setSelectedPage] = useState<FacebookPage | null>(null);
+  const { data: accounts, isLoading: accountsLoading, refetch } = trpc.account.connected.useQuery();
+  const [selectedPage, setSelectedPage] = useState<any>(null);
   const [posts, setPosts] = useState<FacebookPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const [step, setStep] = useState<"idle" | "pages" | "posts">("idle");
+  const [step, setStep] = useState<"idle" | "posts">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState("");
-  const [pageId, setPageId] = useState("");
   const [igAccount, setIgAccount] = useState<InstagramAccount | null>(null);
   const [igMedia, setIgMedia] = useState<InstagramMedia[]>([]);
   const [igLoading, setIgLoading] = useState(false);
@@ -86,42 +78,20 @@ export default function FacebookDemo() {
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
 
-  const API_BASE = "";
+  const fbAccounts = (accounts || []).filter((a: any) => a.platform === "facebook" && a.isConnected === "true");
 
-  const fetchPages = async () => {
-    setLoading(true);
-    setStep("idle");
-    setError(null);
-    try {
-      let url = `${API_BASE}/api/facebook/pages?token=${encodeURIComponent(token)}`;
-      if (pageId.trim()) url += `&pageId=${encodeURIComponent(pageId.trim())}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      if (!data.user) throw new Error("No user data returned. Token may be expired.");
-      setUser(data.user);
-      setPages(data.pages || []);
-      setStep("pages");
-      toast.success(`Found ${(data.pages || []).length} pages`);
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPosts = async (page: FacebookPage) => {
-    setSelectedPage(page);
+  const fetchPosts = async (account: any) => {
+    setSelectedPage(account);
     setPostsLoading(true);
     setIgLoading(true);
     setStep("posts");
     setIgAccount(null);
     setIgMedia([]);
+    setError(null);
     try {
       const [postsRes, igRes] = await Promise.all([
-        fetch(`${API_BASE}/api/facebook/posts?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`),
-        fetch(`${API_BASE}/api/facebook/instagram?pageId=${page.id}&pageToken=${encodeURIComponent(page.access_token)}`),
+        fetch(`/api/facebook/posts?pageId=${account.platformId}&pageToken=${encodeURIComponent(account.accessToken)}`),
+        fetch(`/api/facebook/instagram?pageId=${account.platformId}&pageToken=${encodeURIComponent(account.accessToken)}`),
       ]);
       const postsData = await postsRes.json();
       const igData = await igRes.json();
@@ -133,6 +103,7 @@ export default function FacebookDemo() {
       }
       toast.success(`Loaded ${(postsData.posts || []).length} posts`);
     } catch (err: any) {
+      setError(err.message);
       toast.error(err.message);
     } finally {
       setPostsLoading(false);
@@ -149,19 +120,19 @@ export default function FacebookDemo() {
     setPublishing(true);
     setPublishResult(null);
     try {
-      const res = await fetch(`${API_BASE}/api/facebook/instagram/publish`, {
+      const res = await fetch(`/api/facebook/instagram/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           igAccountId: igAccount.id,
-          pageToken: selectedPage.access_token,
+          pageToken: selectedPage.accessToken,
           imageUrl: publishImageUrl,
           caption: publishCaption,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      setPublishResult(`Published! Container ID: ${data.containerId}`);
+      setPublishResult(`Published! Media ID: ${data.mediaId}`);
       toast.success("Post published to Instagram!");
       setPublishCaption("");
       setPublishImageUrl("");
@@ -193,7 +164,6 @@ export default function FacebookDemo() {
     switch (type) {
       case "photo": return <Image className="h-4 w-4" />;
       case "video": return <Video className="h-4 w-4" />;
-      case "status": return <FileText className="h-4 w-4" />;
       default: return <FileText className="h-4 w-4" />;
     }
   };
@@ -205,50 +175,17 @@ export default function FacebookDemo() {
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Facebook className="h-6 w-6 text-[#1877F2]" />
-            Facebook Pages Demo
+            Facebook & Instagram
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Demo showing how SocialSync reads Facebook Page data using the Graph API
+            View posts, analytics, and publish to Instagram from your connected pages
           </p>
         </div>
-        <Button onClick={fetchPages} disabled={loading || !token.trim()} size="sm">
-          {loading ? (
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          {step === "idle" ? "Fetch Pages" : "Refresh"}
+        <Button onClick={() => refetch()} disabled={accountsLoading} size="sm" variant="outline">
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${accountsLoading ? "animate-spin" : ""}`} />
+          Refresh
         </Button>
       </div>
-
-      {/* Token Input */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Facebook Access Token</label>
-            <input
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste your Facebook access token (user or page token)..."
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Page ID <span className="text-muted-foreground/60">(optional — required for page tokens)</span></label>
-            <input
-              type="text"
-              value={pageId}
-              onChange={(e) => setPageId(e.target.value)}
-              placeholder="e.g. 784108274793561"
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Get a token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">Graph API Explorer</a> — select app, check permissions, generate token
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Error */}
       {error && (
@@ -263,92 +200,90 @@ export default function FacebookDemo() {
         </Card>
       )}
 
-      {/* Progress Steps */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-2 ${step !== "idle" ? "text-primary" : "text-muted-foreground"}`}>
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step !== "idle" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {step !== "idle" ? "✓" : "1"}
-              </div>
-              <span className="text-sm font-medium">Connect</span>
-            </div>
-            <div className={`h-0.5 flex-1 ${step === "pages" || step === "posts" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`flex items-center gap-2 ${step === "pages" || step === "posts" ? "text-primary" : "text-muted-foreground"}`}>
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step === "pages" || step === "posts" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {step === "posts" ? "✓" : "2"}
-              </div>
-              <span className="text-sm font-medium">Pages</span>
-            </div>
-            <div className={`h-0.5 flex-1 ${step === "posts" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`flex items-center gap-2 ${step === "posts" ? "text-primary" : "text-muted-foreground"}`}>
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step === "posts" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                3
-              </div>
-              <span className="text-sm font-medium">Posts</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Loading */}
+      {accountsLoading && (
+        <div className="space-y-4">
+          {Array(2).fill(0).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-5">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* User Info */}
-      {user && (
+      {/* No accounts */}
+      {!accountsLoading && fbAccounts.length === 0 && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold">
-                {(user.name || "?").charAt(0)}
+          <CardContent className="p-12 text-center">
+            <Facebook className="h-16 w-16 mx-auto text-[#1877F2] mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">No Facebook Pages Connected</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+              Log in with Facebook to automatically connect your pages. Your pages and their tokens will be saved so you don't need to paste tokens manually.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+              <div className="p-4 rounded-lg bg-muted/50">
+                <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs font-medium">Read Posts</p>
               </div>
-              <div>
-                <p className="font-semibold">{user.name}</p>
-                <p className="text-xs text-muted-foreground">Facebook ID: {user.id}</p>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <BarChart3 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs font-medium">View Analytics</p>
               </div>
-              <Badge className="ml-auto">Connected</Badge>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <Send className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs font-medium">Publish to IG</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Pages List */}
-      {step === "pages" && pages.length > 0 && (
+      {/* Connected Pages */}
+      {!accountsLoading && fbAccounts.length > 0 && step === "idle" && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Your Facebook Pages ({pages.length})
+            Your Connected Pages ({fbAccounts.length})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {pages.map((page) => (
-              <Card key={page.id} className="overflow-hidden">
+            {fbAccounts.map((account: any) => (
+              <Card key={account.id} className="overflow-hidden hover:shadow-md transition-shadow">
                 <div className="h-1.5 bg-gradient-to-r from-[#1877F2] to-blue-400" />
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-xl bg-[#1877F2] flex items-center justify-center text-white font-bold text-lg">
-                        {page.name.charAt(0)}
+                      <div className="h-12 w-12 rounded-xl bg-[#1877F2] flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                        {account.avatarUrl ? (
+                          <img src={account.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          account.name.charAt(0)
+                        )}
                       </div>
                       <div>
-                        <h4 className="font-semibold">{page.name}</h4>
-                        <p className="text-xs text-muted-foreground">ID: {page.id}</p>
-                        {page.category && (
+                        <h4 className="font-semibold">{account.name}</h4>
+                        <p className="text-xs text-muted-foreground">Page ID: {account.platformId}</p>
+                        {account.platformCategory && (
                           <Badge variant="secondary" className="mt-1 text-[10px]">
-                            {page.category}
+                            {account.platformCategory}
                           </Badge>
                         )}
                       </div>
                     </div>
-                    <Button size="sm" onClick={() => fetchPosts(page)}>
+                    <Button size="sm" onClick={() => fetchPosts(account)}>
                       View Posts
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
                     <div className="text-center">
-                      <p className="text-lg font-bold">{formatCount(page.fan_count || 0)}</p>
-                      <p className="text-[10px] text-muted-foreground">Likes</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold">{formatCount(page.followers_count || 0)}</p>
+                      <p className="text-lg font-bold">{formatCount(account.followerCount || 0)}</p>
                       <p className="text-[10px] text-muted-foreground">Followers</p>
+                    </div>
+                    <div className="text-center flex items-center justify-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-emerald-500" />
+                      <p className="text-sm font-semibold text-emerald-600">Connected</p>
                     </div>
                   </div>
                 </CardContent>
@@ -366,8 +301,8 @@ export default function FacebookDemo() {
               <FileText className="h-4 w-4" />
               Posts from {selectedPage.name}
             </h3>
-            <Button variant="outline" size="sm" onClick={() => setStep("pages")}>
-              ← Back to Pages
+            <Button variant="outline" size="sm" onClick={() => setStep("idle")}>
+              Back to Pages
             </Button>
           </div>
 
@@ -477,8 +412,8 @@ export default function FacebookDemo() {
                   <img src={igAccount.profile_picture_url} alt="" className="h-14 w-14 rounded-full" />
                 )}
                 <div>
-                  <p className="font-semibold">{igAccount.username || igAccount.name}</p>
-                  <p className="text-xs text-muted-foreground">ID: {igAccount.id}</p>
+                  <p className="font-semibold">@{igAccount.username || igAccount.name}</p>
+                  <p className="text-xs text-muted-foreground">IG ID: {igAccount.id}</p>
                 </div>
                 <div className="ml-auto flex gap-6">
                   <div className="text-center">
@@ -588,34 +523,6 @@ export default function FacebookDemo() {
           <CardContent className="p-6 text-center">
             <Instagram className="h-10 w-10 mx-auto text-[#E4405F] mb-2 opacity-50" />
             <p className="text-sm text-muted-foreground">No Instagram Business account linked to this page</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty State */}
-      {step === "idle" && !loading && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Facebook className="h-16 w-16 mx-auto text-[#1877F2] mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Connect Your Facebook Pages</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-              Click "Fetch Pages" to connect your Facebook account and view your pages.
-              This demonstrates how SocialSync reads Facebook Page data using the Graph API.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
-              <div className="p-4 rounded-lg bg-muted/50">
-                <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs font-medium">Read Posts</p>
-              </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <BarChart3 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs font-medium">View Analytics</p>
-              </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs font-medium">Manage Pages</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       )}

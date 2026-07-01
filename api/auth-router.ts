@@ -5,8 +5,8 @@ import { getSessionCookieOptions } from "./lib/cookies";
 import { createRouter, authedQuery, publicQuery } from "./middleware";
 import { hashPassword, verifyPassword } from "./lib/password";
 import { getDb } from "./queries/connection";
-import { users } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { users, socialAccounts } from "@db/schema";
+import { eq, and } from "drizzle-orm";
 import * as jose from "jose";
 import { env } from "./lib/env";
 
@@ -177,6 +177,102 @@ export const authRouter = createRouter({
           maxAge: Session.maxAgeMs / 1000,
         }),
       );
+
+      // Auto-fetch and save Facebook pages using the access token
+      try {
+        const pagesRes = await fetch(
+          `https://graph.facebook.com/v25.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(input.accessToken)}`
+        );
+        const pagesData: any = await pagesRes.json();
+
+        if (!pagesData.error && pagesData.data && pagesData.data.length > 0) {
+          for (const page of pagesData.data) {
+            // Skip if already connected
+            const existing = await db.query.socialAccounts.findFirst({
+              where: and(
+                eq(socialAccounts.platformId, page.id),
+                eq(socialAccounts.userId, user!.id),
+              ),
+            });
+            if (existing) {
+              // Update token
+              await db.update(socialAccounts).set({
+                accessToken: page.access_token,
+                name: page.name,
+                followerCount: page.followers_count || page.fan_count || 0,
+                platformCategory: page.category,
+              }).where(eq(socialAccounts.id, existing.id));
+              continue;
+            }
+
+            // Check for linked Instagram account
+            let igInfo: { id: string; username: string } | null = null;
+            try {
+              const igRes = await fetch(
+                `https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(page.access_token)}`
+              );
+              const igData: any = await igRes.json();
+              if (igData.instagram_business_account) {
+                igInfo = {
+                  id: igData.instagram_business_account.id,
+                  username: igData.instagram_business_account.username || "",
+                };
+              }
+            } catch {}
+
+            // Create Facebook account
+            await db.insert(socialAccounts).values({
+              userId: user!.id,
+              platform: "facebook",
+              name: page.name,
+              handle: page.id,
+              avatarUrl: `https://graph.facebook.com/v25.0/${page.id}/picture?type=large`,
+              followerCount: page.followers_count || page.fan_count || 0,
+              isConnected: "true",
+              accessToken: page.access_token,
+              platformId: page.id,
+              platformCategory: page.category,
+              reach: 0,
+              engagement: 0,
+            });
+
+            // If Instagram is linked, also save it
+            if (igInfo) {
+              try {
+                const igDetailsRes = await fetch(
+                  `https://graph.facebook.com/v25.0/${igInfo.id}?fields=name,username,followers_count,media_count,profile_picture_url&access_token=${encodeURIComponent(page.access_token)}`
+                );
+                const igDetails: any = await igDetailsRes.json();
+                if (!igDetails.error) {
+                  const existingIg = await db.query.socialAccounts.findFirst({
+                    where: and(
+                      eq(socialAccounts.platformId, igInfo.id),
+                      eq(socialAccounts.userId, user!.id),
+                    ),
+                  });
+                  if (!existingIg) {
+                    await db.insert(socialAccounts).values({
+                      userId: user!.id,
+                      platform: "instagram",
+                      name: igDetails.name || igDetails.username || igInfo.username,
+                      handle: igInfo.username,
+                      avatarUrl: igDetails.profile_picture_url,
+                      followerCount: igDetails.followers_count || 0,
+                      isConnected: "true",
+                      accessToken: page.access_token,
+                      platformId: igInfo.id,
+                      reach: 0,
+                      engagement: 0,
+                    });
+                  }
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch {
+        // Page fetching is best-effort
+      }
 
       return { userId: user.id, email: user.email, name: user.name };
     }),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,14 @@ export default function Accounts() {
     followers_count?: number;
   }>>([]);
   const [fbUser, setFbUser] = useState<{ name: string; id: string } | null>(null);
+
+  // Auto-fill token from localStorage if available
+  useEffect(() => {
+    const stored = localStorage.getItem("fb_access_token");
+    if (stored && !fbToken) {
+      setFbToken(stored);
+    }
+  }, []);
 
   const updateAccount = trpc.account.update.useMutation({
     onSuccess: () => {
@@ -233,11 +241,10 @@ export default function Accounts() {
               Connect Facebook Pages
             </DialogTitle>
             <DialogDescription>
-              Enter a Facebook access token to connect your pages. Get a token from{" "}
+              Your Facebook token is auto-filled from your login session. Click "Fetch Pages" to discover your pages, or paste a fresh token from{" "}
               <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">
                 Graph API Explorer
-              </a>
-              {" "}with the following permissions: pages_show_list, pages_read_engagement, instagram_basic, instagram_content_publish
+              </a>.
             </DialogDescription>
           </DialogHeader>
 
