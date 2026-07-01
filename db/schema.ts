@@ -28,6 +28,7 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const socialAccounts = pgTable("social_accounts", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   platform: varchar("platform", { length: 50 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   handle: varchar("handle", { length: 255 }).notNull(),
@@ -36,6 +37,10 @@ export const socialAccounts = pgTable("social_accounts", {
   reach: integer("reach").default(0),
   engagement: integer("engagement").default(0),
   isConnected: varchar("is_connected", { length: 5 }).default("true").notNull(),
+  accessToken: text("access_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  platformId: varchar("platform_id", { length: 255 }),
+  platformCategory: varchar("platform_category", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -45,6 +50,7 @@ export type InsertSocialAccount = typeof socialAccounts.$inferInsert;
 
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   status: varchar("status", { length: 10 }).default("draft").notNull(),
   scheduledAt: timestamp("scheduled_at"),
@@ -59,8 +65,8 @@ export type InsertPost = typeof posts.$inferInsert;
 
 export const postAccounts = pgTable("post_accounts", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull(),
-  accountId: integer("account_id").notNull(),
+  postId: integer("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => socialAccounts.id, { onDelete: "cascade" }),
   platformStatus: varchar("platform_status", { length: 10 }).default("pending").notNull(),
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -71,7 +77,7 @@ export type InsertPostAccount = typeof postAccounts.$inferInsert;
 
 export const media = pgTable("media", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull(),
+  postId: integer("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   type: varchar("type", { length: 10 }).default("image").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -82,6 +88,7 @@ export type InsertMedia = typeof media.$inferInsert;
 
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   type: varchar("type", { length: 50 }).notNull(),
   message: text("message").notNull(),
   metadata: text("metadata"),

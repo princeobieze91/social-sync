@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Users,
@@ -14,6 +15,10 @@ import {
   TrendingUp,
   CheckCircle2,
   AlertCircle,
+  Facebook,
+  Instagram,
+  RefreshCw,
+  LogIn,
 } from "lucide-react";
 
 const platformConfig: Record<string, { name: string; color: string; gradient: string; icon: string }> = {
@@ -59,6 +64,18 @@ export default function Accounts() {
   const utils = trpc.useUtils();
   const { data: accounts, isLoading } = trpc.account.list.useQuery();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showFacebookDialog, setShowFacebookDialog] = useState(false);
+  const [fbToken, setFbToken] = useState("");
+  const [fbLoading, setFbLoading] = useState(false);
+  const [fbPages, setFbPages] = useState<Array<{
+    name: string;
+    id: string;
+    access_token: string;
+    category?: string;
+    fan_count?: number;
+    followers_count?: number;
+  }>>([]);
+  const [fbUser, setFbUser] = useState<{ name: string; id: string } | null>(null);
 
   const updateAccount = trpc.account.update.useMutation({
     onSuccess: () => {
@@ -85,10 +102,55 @@ export default function Accounts() {
     },
   });
 
+  const fetchFbPages = trpc.analytics.fetchFacebookPages.useQuery(
+    { accessToken: fbToken },
+    { enabled: false }
+  );
+
+  const connectFbPage = trpc.analytics.connectFacebookPage.useMutation({
+    onSuccess: (data) => {
+      utils.account.list.invalidate();
+      utils.account.connected.invalidate();
+      toast.success(`Connected: ${data.pageName}${data.instagramConnected ? " + Instagram" : ""}`);
+    },
+    onError: (err) => toast.error(`Failed to connect: ${err.message}`),
+  });
+
   const toggleConnection = (id: number, currentlyConnected: string) => {
     updateAccount.mutate({
       id,
       isConnected: currentlyConnected === "true" ? "false" : "true",
+    });
+  };
+
+  const handleFetchFacebookPages = async () => {
+    if (!fbToken.trim()) {
+      toast.error("Please enter a Facebook access token");
+      return;
+    }
+    setFbLoading(true);
+    try {
+      const result = await fetchFbPages.refetch();
+      if (result.data) {
+        setFbUser(result.data.user);
+        setFbPages(result.data.pages);
+        toast.success(`Found ${result.data.pages.length} Facebook pages`);
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setFbLoading(false);
+    }
+  };
+
+  const handleConnectPage = async (page: typeof fbPages[0]) => {
+    connectFbPage.mutate({
+      pageId: page.id,
+      pageName: page.name,
+      pageAccessToken: page.access_token,
+      pageCategory: page.category,
+      fanCount: page.fan_count,
+      followersCount: page.followers_count,
     });
   };
 
@@ -105,10 +167,16 @@ export default function Accounts() {
             Manage your connected social media profiles.
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Connect Account
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowFacebookDialog(true)}>
+            <Facebook className="mr-1.5 h-3.5 w-3.5 text-[#1877F2]" />
+            Connect Facebook
+          </Button>
+          <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Manual Connect
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -156,11 +224,89 @@ export default function Accounts() {
         </Card>
       </div>
 
-      {/* Add Account Form */}
+      {/* Facebook Connect Dialog */}
+      <Dialog open={showFacebookDialog} onOpenChange={setShowFacebookDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Facebook className="h-5 w-5 text-[#1877F2]" />
+              Connect Facebook Pages
+            </DialogTitle>
+            <DialogDescription>
+              Enter a Facebook access token to connect your pages. Get a token from{" "}
+              <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline text-primary">
+                Graph API Explorer
+              </a>
+              {" "}with the following permissions: pages_show_list, pages_read_engagement, instagram_basic, instagram_content_publish
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={fbToken}
+                onChange={(e) => setFbToken(e.target.value)}
+                placeholder="Paste Facebook access token..."
+                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm font-mono"
+              />
+              <Button size="sm" onClick={handleFetchFacebookPages} disabled={fbLoading}>
+                {fbLoading ? (
+                  <><RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Loading...</>
+                ) : (
+                  <><LogIn className="mr-1.5 h-3.5 w-3.5" /> Fetch Pages</>
+                )}
+              </Button>
+            </div>
+
+            {fbUser && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Facebook className="h-5 w-5 text-[#1877F2]" />
+                <span className="text-sm font-medium">{fbUser.name}</span>
+                <Badge className="ml-auto">Connected</Badge>
+              </div>
+            )}
+
+            {fbPages.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Your Pages ({fbPages.length})</p>
+                {fbPages.map((page) => (
+                  <div key={page.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-bold text-sm">
+                        {page.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{page.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {page.fan_count?.toLocaleString() || 0} followers
+                          {page.category ? ` · ${page.category}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <Button size="sm" onClick={() => handleConnectPage(page)} disabled={connectFbPage.isPending}>
+                      {connectFbPage.isPending ? "Connecting..." : "Connect"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {fbPages.length === 0 && fbUser && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Facebook className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No pages found for this account. Make sure your token has the pages_show_list permission.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Add Account Form */}
       {showAddForm && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Connect New Account</CardTitle>
+            <CardTitle className="text-sm font-semibold">Connect Account Manually</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -231,6 +377,8 @@ export default function Accounts() {
         ) : (
           (accounts || []).map((account) => {
             const config = platformConfig[account.platform];
+            const isFacebook = account.platform === "facebook";
+            const isInstagram = account.platform === "instagram";
             return (
               <Card key={account.id} className="group overflow-hidden">
                 <div className={`h-1.5 bg-gradient-to-r ${config?.gradient || "from-muted to-muted"}`} />
@@ -238,11 +386,22 @@ export default function Accounts() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${config?.color || "bg-muted"}`}>
-                        {config?.icon || "?"}
+                        {isFacebook ? (
+                          <Facebook className="h-5 w-5" />
+                        ) : isInstagram ? (
+                          <Instagram className="h-5 w-5" />
+                        ) : (
+                          config?.icon || "?"
+                        )}
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-semibold text-sm truncate">{account.name}</h3>
                         <p className="text-xs text-muted-foreground">{account.handle}</p>
+                        {account.platformCategory && (
+                          <Badge variant="outline" className="text-[9px] mt-0.5">
+                            {account.platformCategory}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

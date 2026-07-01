@@ -1,10 +1,11 @@
 import { getDb } from "./connection";
 import { activities } from "@db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { InsertActivity } from "@db/schema";
 
-export async function findAllActivities(limit?: number) {
+export async function findAllActivities(userId: number, limit?: number) {
   return getDb().query.activities.findMany({
+    where: eq(activities.userId, userId),
     orderBy: [desc(activities.createdAt)],
     limit,
   });

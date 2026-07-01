@@ -11,22 +11,22 @@ import {
 } from "./queries/posts";
 
 export const postsRouter = createRouter({
-  list: authedQuery.query(() => findAllPosts()),
+  list: authedQuery.query(({ ctx }) => findAllPosts(ctx.user!.id)),
 
   byId: authedQuery
     .input(z.object({ id: z.number() }))
-    .query(({ input }) => findPostById(input.id)),
+    .query(({ input, ctx }) => findPostById(input.id, ctx.user!.id)),
 
   byStatus: authedQuery
     .input(z.object({ status: z.enum(["draft", "scheduled", "published", "failed"]) }))
-    .query(({ input }) => findPostsByStatus(input.status)),
+    .query(({ input, ctx }) => findPostsByStatus(input.status, ctx.user!.id)),
 
   byDateRange: authedQuery
     .input(z.object({
       start: z.string().transform((s) => new Date(s)),
       end: z.string().transform((s) => new Date(s)),
     }))
-    .query(({ input }) => findPostsByDateRange(input.start, input.end)),
+    .query(({ input, ctx }) => findPostsByDateRange(input.start, input.end, ctx.user!.id)),
 
   create: authedQuery
     .input(z.object({
@@ -35,7 +35,10 @@ export const postsRouter = createRouter({
       scheduledAt: z.string().nullable().optional().transform((s) => s ? new Date(s) : null),
       accountIds: z.array(z.number()).default([]),
     }))
-    .mutation(({ input }) => createPost(input)),
+    .mutation(({ input, ctx }) => createPost({
+      ...input,
+      userId: ctx.user!.id,
+    })),
 
   update: authedQuery
     .input(z.object({
@@ -45,12 +48,12 @@ export const postsRouter = createRouter({
       scheduledAt: z.string().nullable().optional().transform((s) => s ? new Date(s) : null),
       accountIds: z.array(z.number()).optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ input, ctx }) => {
       const { id, ...data } = input;
-      return updatePost(id, data);
+      return updatePost(id, data, ctx.user!.id);
     }),
 
   delete: authedQuery
     .input(z.object({ id: z.number() }))
-    .mutation(({ input }) => deletePost(input.id)),
+    .mutation(({ input, ctx }) => deletePost(input.id, ctx.user!.id)),
 });

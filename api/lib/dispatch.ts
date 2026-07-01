@@ -1,7 +1,7 @@
 import { env } from "./env";
 import { getDb } from "../queries/connection";
 import { posts } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 interface DispatchTarget {
   platform: string;
@@ -67,11 +67,11 @@ function buildFormats(content: string, platforms: string[]): Record<string, any>
   return formats;
 }
 
-export async function dispatchPost(postId: number): Promise<DispatchResponse> {
+export async function dispatchPost(postId: number, userId: number): Promise<DispatchResponse> {
   const db = getDb();
 
   const post = await db.query.posts.findFirst({
-    where: eq(posts.id, postId),
+    where: and(eq(posts.id, postId), eq(posts.userId, userId)),
     with: {
       postAccounts: {
         with: {

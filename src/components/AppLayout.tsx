@@ -99,7 +99,7 @@ function AppLayoutContent({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, isMobile } = useSidebar();
+  const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { data: accounts } = trpc.account.connected.useQuery();
 

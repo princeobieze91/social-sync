@@ -10,13 +10,13 @@ import {
 } from "./queries/accounts";
 
 export const accountsRouter = createRouter({
-  list: authedQuery.query(() => findAllAccounts()),
+  list: authedQuery.query(({ ctx }) => findAllAccounts(ctx.user!.id)),
 
-  connected: authedQuery.query(() => findConnectedAccounts()),
+  connected: authedQuery.query(({ ctx }) => findConnectedAccounts(ctx.user!.id)),
 
   byId: authedQuery
     .input(z.object({ id: z.number() }))
-    .query(({ input }) => findAccountById(input.id)),
+    .query(({ input, ctx }) => findAccountById(input.id, ctx.user!.id)),
 
   create: authedQuery
     .input(z.object({
@@ -25,10 +25,15 @@ export const accountsRouter = createRouter({
       handle: z.string().min(1),
       avatarUrl: z.string().optional(),
       followerCount: z.number().optional(),
+      platformId: z.string().optional(),
+      accessToken: z.string().optional(),
+      platformCategory: z.string().optional(),
     }))
-    .mutation(({ input }) => createAccount({
+    .mutation(({ input, ctx }) => createAccount({
       ...input,
+      userId: ctx.user!.id,
       isConnected: "true",
+      followerCount: input.followerCount ?? 0,
     })),
 
   update: authedQuery
@@ -40,12 +45,12 @@ export const accountsRouter = createRouter({
       followerCount: z.number().optional(),
       isConnected: z.enum(["true", "false"]).optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ input, ctx }) => {
       const { id, ...data } = input;
-      return updateAccount(id, data);
+      return updateAccount(id, data, ctx.user!.id);
     }),
 
   delete: authedQuery
     .input(z.object({ id: z.number() }))
-    .mutation(({ input }) => deleteAccount(input.id)),
+    .mutation(({ input, ctx }) => deleteAccount(input.id, ctx.user!.id)),
 });

@@ -9,10 +9,11 @@ import { eq, and } from "drizzle-orm";
 export const publishRouter = createRouter({
   dispatch: authedQuery
     .input(z.object({ postId: z.number() }))
-    .mutation(async ({ input }) => {
-      const result = await dispatchPost(input.postId);
+    .mutation(async ({ input, ctx }) => {
+      const result = await dispatchPost(input.postId, ctx.user!.id);
 
       await createActivity({
+        userId: ctx.user!.id,
         type: "publish",
         message: `Post dispatched to platforms`,
         metadata: JSON.stringify({
@@ -33,10 +34,11 @@ export const publishRouter = createRouter({
 
   retry: authedQuery
     .input(z.object({ dispatchId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       await retryDispatch(input.dispatchId);
 
       await createActivity({
+        userId: ctx.user!.id,
         type: "publish",
         message: `Dispatch retry initiated`,
         metadata: JSON.stringify({ dispatchId: input.dispatchId }),
@@ -88,6 +90,7 @@ export const publishRouter = createRouter({
         }
 
         await createActivity({
+          userId: post.userId,
           type: "publish",
           message: `Post published to ${input.platform || "platform"}`,
           metadata: JSON.stringify(input),
@@ -99,6 +102,7 @@ export const publishRouter = createRouter({
         }).where(eq(posts.id, post.id));
 
         await createActivity({
+          userId: post.userId,
           type: "publish",
           message: `Publish failed: ${input.error || "Unknown error"}`,
           metadata: JSON.stringify(input),

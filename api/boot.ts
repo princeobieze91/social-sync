@@ -93,7 +93,7 @@ app.get("/api/facebook/pages", async (c) => {
     // If pageId is provided, treat token as a page token
     if (directPageId) {
       const pageRes = await fetch(`https://graph.facebook.com/v25.0/${directPageId}?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
-      const pageData = await pageRes.json();
+      const pageData: any = await pageRes.json();
       if (pageData.error) return c.json({ error: pageData.error });
 
       return c.json({
@@ -103,22 +103,22 @@ app.get("/api/facebook/pages", async (c) => {
     }
 
     const userRes = await fetch(`https://graph.facebook.com/v25.0/me?fields=name,id&access_token=${encodeURIComponent(token)}`);
-    const user = await userRes.json();
+    const user: any = await userRes.json();
     if (user.error) return c.json({ error: user.error });
 
     const pagesRes = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=name,id,access_token,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
-    const pages = await pagesRes.json();
+    const pages: any = await pagesRes.json();
     if (pages.error) return c.json({ error: pages.error });
 
     // If no pages found, the token might be a page token - try using it directly
     if (!pages.data || pages.data.length === 0) {
       const debugRes = await fetch(`https://graph.facebook.com/v25.0/me?fields=id&access_token=${encodeURIComponent(token)}`);
-      const debug = await debugRes.json();
+      const debug: any = await debugRes.json();
       // Check if this is a page token by looking at the ID
       if (debug.id && debug.id !== user.id) {
         // This might be a page token
         const pageRes = await fetch(`https://graph.facebook.com/v25.0/${debug.id}?fields=name,id,category,fan_count,followers_count&access_token=${encodeURIComponent(token)}`);
-        const pageData = await pageRes.json();
+        const pageData: any = await pageRes.json();
         if (!pageData.error) {
           return c.json({
             user,
@@ -141,14 +141,14 @@ app.get("/api/facebook/instagram", async (c) => {
 
   try {
     const igRes = await fetch(`https://graph.facebook.com/v25.0/${pageId}?fields=instagram_business_account{id,name,username,profile_picture_url,followers_count,media_count}&access_token=${encodeURIComponent(pageToken)}`);
-    const igData = await igRes.json();
+    const igData: any = await igRes.json();
     if (igData.error) return c.json({ error: igData.error });
 
     const igAccount = igData.instagram_business_account;
     if (!igAccount) return c.json({ instagram: null });
 
     const mediaRes = await fetch(`https://graph.facebook.com/v25.0/${igAccount.id}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${encodeURIComponent(pageToken)}`);
-    const mediaData = await mediaRes.json();
+    const mediaData: any = await mediaRes.json();
 
     return c.json({ instagram: igAccount, media: mediaData.data || [] });
   } catch (err: any) {
@@ -167,13 +167,13 @@ app.post("/api/facebook/instagram/publish", async (c) => {
     const containerRes = await fetch(`https://graph.facebook.com/v25.0/${igAccountId}/media?image_url=${encodeURIComponent(imageUrl)}&caption=${encodeURIComponent(caption || "")}&access_token=${encodeURIComponent(pageToken)}`, {
       method: "POST",
     });
-    const containerData = await containerRes.json();
+    const containerData: any = await containerRes.json();
     if (containerData.error) return c.json({ error: containerData.error });
 
     const publishRes = await fetch(`https://graph.facebook.com/v25.0/${igAccountId}/media_publish?creation_id=${containerData.id}&access_token=${encodeURIComponent(pageToken)}`, {
       method: "POST",
     });
-    const publishData = await publishRes.json();
+    const publishData: any = await publishRes.json();
     if (publishData.error) return c.json({ error: publishData.error });
 
     return c.json({ success: true, mediaId: publishData.id, containerId: containerData.id });
@@ -190,7 +190,7 @@ app.get("/api/facebook/posts", async (c) => {
 
   try {
     const res = await fetch(`https://graph.facebook.com/v25.0/${pageId}/feed?fields=id,message,created_time,type,full_picture&limit=10&access_token=${encodeURIComponent(pageToken)}`);
-    const data = await res.json();
+    const data: any = await res.json();
     if (data.error) return c.json({ error: data.error });
 
     return c.json({ posts: data.data || [] });
