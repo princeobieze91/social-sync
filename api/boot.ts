@@ -3,6 +3,8 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { eq } from "drizzle-orm";
+import { getDb } from "./queries/connection";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
@@ -228,6 +230,116 @@ app.post("/api/ai/generate-caption", async (c) => {
   const index = Date.now() % captions.length;
   const caption = captions[index];
   return c.json({ caption });
+});
+
+app.post("/api/webhooks/instagram", async (c) => {
+  const body = await c.req.json();
+
+  // Meta webhook verification
+  if (body["hub.mode"] === "subscribe" && body["hub.verify_token"] === (process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "socialsync-webhook-verify")) {
+    return c.json({ "hub.challenge": body["hub.challenge"] });
+  }
+
+  // Process webhook entries
+  try {
+    const entries = body.entry || [];
+    for (const entry of entries) {
+      const igUserId = entry.id;
+      const changes = entry.changes || [];
+
+      for (const change of changes) {
+        if (change.field === "feed") {
+          const postData = change.value;
+
+          // Find the user who owns this Instagram account
+          const db = getDb();
+          const { socialAccounts, activities } = await import("@db/schema");
+
+          const account = await db.query.socialAccounts.findFirst({
+            where: eq(socialAccounts.platformId, igUserId),
+          });
+
+          if (account) {
+            // Log the new post activity
+            await db.insert(activities).values({
+              userId: account.userId,
+              type: "ig_webhook",
+              message: `New Instagram post detected: ${postData.media_id || "unknown"}`,
+              metadata: JSON.stringify(postData),
+            });
+          }
+        }
+      }
+    }
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.get("/api/webhooks/instagram", async (c) => {
+  const mode = c.req.query("hub.mode");
+  const token = c.req.query("hub.verify_token");
+  const challenge = c.req.query("hub.challenge");
+
+  if (mode === "subscribe" && token === (process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "socialsync-webhook-verify")) {
+    return c.text(challenge || "");
+  }
+  return c.json({ error: "Forbidden" }, 403);
+});
+
+app.get("/api/auth/instagram/callback", async (c) => {
+  const code = c.req.query("code");
+  const error = c.req.query("error");
+
+  if (error) {
+    return c.text(`<script>window.opener.postMessage({error:"${error}"},"*");window.close();</script>`, 200, { "Content-Type": "text/html" });
+  }
+
+  if (!code) {
+    return c.json({ error: "Missing code parameter" }, 400);
+  }
+
+  try {
+    // Exchange code for long-lived token
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${process.env.FB_APP_ID || "1368642678453217"}&client_secret=${process.env.APP_SECRET}&redirect_uri=${encodeURIComponent(process.env.APP_URL || "https://social-sync-qu2d.onrender.com")}&code=${encodeURIComponent(code)}`
+    );
+    const tokenData: any = await tokenRes.json();
+    if (tokenData.error) throw new Error(tokenData.error.message);
+
+    const shortToken = tokenData.access_token;
+
+    // Exchange for 60-day token
+    const longTokenRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FB_APP_ID || "1368642678453217"}&client_secret=${process.env.APP_SECRET}&fb_exchange_token=${encodeURIComponent(shortToken)}`
+    );
+    const longTokenData: any = await longTokenRes.json();
+    if (longTokenData.error) throw new Error(longTokenData.error.message);
+
+    const longToken = longTokenData.access_token;
+
+    // Get user info
+    const userRes = await fetch(
+      `https://graph.facebook.com/v25.0/me?fields=name,email&access_token=${encodeURIComponent(longToken)}`
+    );
+    const userData: any = await userRes.json();
+
+    // Return to opener window
+    const script = `
+      <script>
+        window.opener.postMessage({
+          accessToken: "${longToken}",
+          email: "${userData.email || ""}",
+          name: "${userData.name || ""}"
+        }, "*");
+        window.close();
+      </script>
+    `;
+    return c.text(script, 200, { "Content-Type": "text/html" });
+  } catch (err: any) {
+    return c.text(`<script>window.opener.postMessage({error:"${err.message}"},"*");window.close();</script>`, 200, { "Content-Type": "text/html" });
+  }
 });
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
