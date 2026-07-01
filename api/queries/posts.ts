@@ -3,8 +3,8 @@ import { posts, postAccounts, media, socialAccounts } from "@db/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import type { Post, InsertMedia } from "@db/schema";
 
-export async function findAllPosts(userId: number) {
-  return getDb().query.posts.findMany({
+export async function findAllPosts(userId: number, limit?: number) {
+  const queryOpts: any = {
     where: eq(posts.userId, userId),
     orderBy: [desc(posts.createdAt)],
     with: {
@@ -15,7 +15,9 @@ export async function findAllPosts(userId: number) {
       },
       media: true,
     },
-  });
+  };
+  if (limit) queryOpts.limit = limit;
+  return getDb().query.posts.findMany(queryOpts);
 }
 
 export async function findPostById(id: number, userId: number) {

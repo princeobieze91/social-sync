@@ -9,9 +9,12 @@ import {
   updatePost,
   deletePost,
 } from "./queries/posts";
+import { createActivity } from "./queries/activities";
 
 export const postsRouter = createRouter({
-  list: authedQuery.query(({ ctx }) => findAllPosts(ctx.user!.id)),
+  list: authedQuery
+    .input(z.object({ limit: z.number().optional() }).optional())
+    .query(({ input, ctx }) => findAllPosts(ctx.user!.id, input?.limit)),
 
   byId: authedQuery
     .input(z.object({ id: z.number() }))
@@ -35,10 +38,18 @@ export const postsRouter = createRouter({
       scheduledAt: z.string().nullable().optional().transform((s) => s ? new Date(s) : null),
       accountIds: z.array(z.number()).default([]),
     }))
-    .mutation(({ input, ctx }) => createPost({
-      ...input,
-      userId: ctx.user!.id,
-    })),
+    .mutation(async ({ input, ctx }) => {
+      const result = await createPost({ ...input, userId: ctx.user!.id });
+      await createActivity({
+        userId: ctx.user!.id,
+        type: "create",
+        message: input.status === "scheduled"
+          ? `Post scheduled for ${input.scheduledAt ? new Date(input.scheduledAt).toLocaleDateString() : "later"}`
+          : `New post created`,
+        metadata: JSON.stringify({ postId: result?.id, status: input.status }),
+      });
+      return result;
+    }),
 
   update: authedQuery
     .input(z.object({
@@ -48,12 +59,31 @@ export const postsRouter = createRouter({
       scheduledAt: z.string().nullable().optional().transform((s) => s ? new Date(s) : null),
       accountIds: z.array(z.number()).optional(),
     }))
-    .mutation(({ input, ctx }) => {
+    .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
-      return updatePost(id, data, ctx.user!.id);
+      const result = await updatePost(id, data, ctx.user!.id);
+      await createActivity({
+        userId: ctx.user!.id,
+        type: data.status === "scheduled" ? "schedule" : "create",
+        message: data.status === "scheduled"
+          ? `Post rescheduled`
+          : data.status === "published"
+          ? `Post published`
+          : `Post updated`,
+        metadata: JSON.stringify({ postId: id, status: data.status }),
+      });
+      return result;
     }),
 
   delete: authedQuery
     .input(z.object({ id: z.number() }))
-    .mutation(({ input, ctx }) => deletePost(input.id, ctx.user!.id)),
+    .mutation(async ({ input, ctx }) => {
+      await deletePost(input.id, ctx.user!.id);
+      await createActivity({
+        userId: ctx.user!.id,
+        type: "create",
+        message: `Post deleted`,
+        metadata: JSON.stringify({ postId: input.id }),
+      });
+    }),
 });

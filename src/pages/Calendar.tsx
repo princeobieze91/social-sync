@@ -41,11 +41,58 @@ const platformIcons: Record<string, string> = {
   threads: "@",
 };
 
+// Type for post with relations from API
+interface PostWithRelations {
+  id: number;
+  userId: number;
+  content: string;
+  status: string;
+  scheduledAt: Date | null;
+  publishedAt: Date | null;
+  dispatchId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  postAccounts: Array<{
+    id: number;
+    postId: number;
+    accountId: number;
+    platformStatus: string;
+    publishedAt: Date | null;
+    createdAt: Date;
+    account: {
+      id: number;
+      userId: number;
+      platform: string;
+      name: string;
+      handle: string;
+      avatarUrl: string | null;
+      followerCount: number | null;
+      reach: number | null;
+      engagement: number | null;
+      isConnected: string;
+      accessToken: string | null;
+      tokenExpiresAt: Date | null;
+      platformId: string | null;
+      platformCategory: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+  }>;
+  media: Array<{
+    id: number;
+    postId: number;
+    url: string;
+    type: string;
+    createdAt: Date;
+  }>;
+}
+
 export default function Calendar() {
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const { data: posts, isLoading } = trpc.post.list.useQuery();
+  const { data: rawPosts, isLoading } = trpc.post.list.useQuery();
+  const posts = (rawPosts || []) as unknown as PostWithRelations[];
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
