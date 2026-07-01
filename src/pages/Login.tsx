@@ -6,8 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { auth, facebookProvider } from "@/lib/firebase";
-import { signInWithPopup, FacebookAuthProvider } from "firebase/auth";
+
+declare global {
+  interface Window {
+    FB: any;
+    fbAsyncInit: () => void;
+  }
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,6 +20,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [fbLoading, setFbLoading] = useState(false);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: () => {
@@ -32,7 +38,7 @@ export default function Login() {
     onError: (err) => toast.error(err.message),
   });
 
-  const firebaseLoginMutation = trpc.auth.firebaseLogin.useMutation({
+  const facebookLoginMutation = trpc.auth.facebookLogin.useMutation({
     onSuccess: () => {
       toast.success("Logged in with Facebook!");
       window.location.href = "/";
@@ -49,30 +55,68 @@ export default function Login() {
     }
   };
 
-  const pending = loginMutation.isPending || registerMutation.isPending || firebaseLoginMutation.isPending;
+  const pending = loginMutation.isPending || registerMutation.isPending || facebookLoginMutation.isPending;
 
-  const handleFacebookLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, facebookProvider);
-      const credential = FacebookAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken;
-      const user = result.user;
+  const handleFacebookLogin = () => {
+    setFbLoading(true);
 
-      if (accessToken && user) {
+    const loginWithToken = (accessToken: string) => {
+      // Get user info from Facebook
+      window.FB.api("/me", { fields: "name,email" }, (response: any) => {
+        if (response.error) {
+          toast.error("Failed to get user info from Facebook");
+          setFbLoading(false);
+          return;
+        }
+
+        // Store token for later use (page connections, etc.)
         localStorage.setItem("fb_access_token", accessToken);
 
-        firebaseLoginMutation.mutate({
+        // Send to backend to create/find user and auto-fetch pages
+        facebookLoginMutation.mutate({
           accessToken,
-          email: user.email || "",
-          name: user.displayName || "",
-          providerId: credential?.providerId || "facebook.com",
+          email: response.email || "",
+          name: response.name || "",
         });
+      });
+    };
+
+    // Check if already logged in
+    window.FB.getLoginStatus((response: any) => {
+      if (response.status === "connected") {
+        // Already logged in, but we need fresh permissions
+        window.FB.login(
+          (loginResponse: any) => {
+            if (loginResponse.authResponse) {
+              loginWithToken(loginResponse.authResponse.accessToken);
+            } else {
+              setFbLoading(false);
+              toast.error("Facebook login cancelled");
+            }
+          },
+          {
+            scope: "pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content",
+            return_scopes: true,
+          }
+        );
+      } else {
+        // Not logged in, trigger login
+        window.FB.login(
+          (loginResponse: any) => {
+            if (loginResponse.authResponse) {
+              loginWithToken(loginResponse.authResponse.accessToken);
+            } else {
+              setFbLoading(false);
+              toast.error("Facebook login cancelled");
+            }
+          },
+          {
+            scope: "pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,pages_read_user_content",
+            return_scopes: true,
+          }
+        );
       }
-    } catch (err: any) {
-      if (err.code !== "auth/popup-closed-by-user") {
-        toast.error("Facebook login failed: " + err.message);
-      }
-    }
+    });
   };
 
   return (
@@ -118,15 +162,29 @@ export default function Login() {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 transition-all"
+              className="w-full h-12 bg-[#1877F2] border-[#1877F2] text-white hover:bg-[#166FE5] transition-all font-medium"
               onClick={handleFacebookLogin}
-              disabled={pending}
+              disabled={pending || fbLoading}
             >
-              <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Continue with Facebook
+              {fbLoading || facebookLoginMutation.isPending ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Connecting to Facebook...
+                </div>
+              ) : (
+                <>
+                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="white">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  Continue with Facebook
+                </>
+              )}
             </Button>
+
+            {/* Permissions info */}
+            <p className="text-[10px] text-center text-gray-500">
+              This will request access to your Facebook Pages and Instagram accounts
+            </p>
 
             {/* Divider */}
             <div className="relative">

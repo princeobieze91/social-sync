@@ -140,7 +140,7 @@ export const authRouter = createRouter({
     return { success: true };
   }),
 
-  firebaseLogin: publicQuery
+  facebookLogin: publicQuery
     .input(z.object({
       accessToken: z.string(),
       email: z.string().email(),
