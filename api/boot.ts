@@ -44,7 +44,7 @@ app.use("*", async (c, next) => {
   c.header("X-Frame-Options", "DENY");
   c.header("X-XSS-Protection", "1; mode=block");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
-  c.header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' https://api.dicebear.com https://images.unsplash.com https://graph.facebook.com data: blob:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://graph.facebook.com https://connect.facebook.net; frame-src https://socialsync-500708.firebaseapp.com https://accounts.google.com https://www.facebook.com; frame-ancestors 'none';");
+  c.header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' https://api.dicebear.com https://images.unsplash.com https://graph.facebook.com https://*.fbcdn.net data: blob:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://graph.facebook.com https://connect.facebook.net https://www.facebook.com https://*.facebook.com; frame-src https://socialsync-500708.firebaseapp.com https://accounts.google.com https://www.facebook.com; frame-ancestors 'none';");
 });
 
 app.use("/api/trpc/*", async (c) => {
