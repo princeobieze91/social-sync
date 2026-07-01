@@ -236,7 +236,7 @@ app.post("/api/webhooks/instagram", async (c) => {
   const body = await c.req.json();
 
   // Meta webhook verification
-  if (body["hub.mode"] === "subscribe" && body["hub.verify_token"] === (process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "socialsync-webhook-verify")) {
+  if (body["hub.mode"] === "subscribe" && body["hub.verify_token"] === env.webhookVerifyToken) {
     return c.json({ "hub.challenge": body["hub.challenge"] });
   }
 
@@ -282,7 +282,7 @@ app.get("/api/webhooks/instagram", async (c) => {
   const token = c.req.query("hub.verify_token");
   const challenge = c.req.query("hub.challenge");
 
-  if (mode === "subscribe" && token === (process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "socialsync-webhook-verify")) {
+  if (mode === "subscribe" && token === env.webhookVerifyToken) {
     return c.text(challenge || "");
   }
   return c.json({ error: "Forbidden" }, 403);
@@ -300,19 +300,23 @@ app.get("/api/auth/instagram/callback", async (c) => {
     return c.json({ error: "Missing code parameter" }, 400);
   }
 
+  const IG_APP_ID = env.igAppId;
+  const IG_APP_SECRET = env.igAppSecret;
+  const REDIRECT_URI = env.appUrl;
+
   try {
-    // Exchange code for long-lived token
+    // Exchange code for short-lived token using Instagram app credentials
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${process.env.FB_APP_ID || "1368642678453217"}&client_secret=${process.env.APP_SECRET}&redirect_uri=${encodeURIComponent(process.env.APP_URL || "https://social-sync-qu2d.onrender.com")}&code=${encodeURIComponent(code)}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${IG_APP_ID}&client_secret=${IG_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${encodeURIComponent(code)}`
     );
     const tokenData: any = await tokenRes.json();
     if (tokenData.error) throw new Error(tokenData.error.message);
 
     const shortToken = tokenData.access_token;
 
-    // Exchange for 60-day token
+    // Exchange for 60-day long-lived token
     const longTokenRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FB_APP_ID || "1368642678453217"}&client_secret=${process.env.APP_SECRET}&fb_exchange_token=${encodeURIComponent(shortToken)}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${IG_APP_ID}&client_secret=${IG_APP_SECRET}&fb_exchange_token=${encodeURIComponent(shortToken)}`
     );
     const longTokenData: any = await longTokenRes.json();
     if (longTokenData.error) throw new Error(longTokenData.error.message);
